@@ -1,0 +1,24 @@
+/* assets/css/slice-ops.css */
+.slice-operations {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 5px;
+}
+
+.slice-operations .btn {
+    padding: 6px 10px;
+}
+
+.slice-operations .btn.is-copied {
+    background-color: #28a745;
+    color: white;
+}
+
+/* Toastify customization */
+.rex-slice-notification {
+    border-radius: 4px;
+    font-family: inherit;
+}
