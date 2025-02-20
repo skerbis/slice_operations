@@ -1,3 +1,4 @@
+<?php 
 // lib/Provider/SliceOperationsProvider.php
 class rex_slice_operations_provider 
 {
