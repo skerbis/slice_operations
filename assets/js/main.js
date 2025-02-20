@@ -1,9 +1,11 @@
+// assets/js/main.js
 import Toastify from 'toastify-js';
 import "toastify-js/src/toastify.css";
 
 class SliceOperations {
     constructor() {
-        this.init();
+        this.copyListeners = new Set();
+        this.pasteListeners = new Set();
     }
 
     init() {
@@ -11,24 +13,45 @@ class SliceOperations {
     }
 
     initCopyPaste() {
-        document.addEventListener('click', (e) => {
-            const copyBtn = e.target.closest('[data-slice-copy]');
-            const pasteBtn = e.target.closest('[data-slice-paste]');
-            
-            if (copyBtn) {
+        // Cleanup old listeners
+        this.removeListeners();
+        
+        // Add new listeners
+        const copyButtons = document.querySelectorAll('[data-slice-copy]');
+        const pasteButtons = document.querySelectorAll('[data-slice-paste]');
+
+        copyButtons.forEach(btn => {
+            const listener = (e) => {
                 e.preventDefault();
-                this.handleCopy(copyBtn);
-            }
-            
-            if (pasteBtn) {
+                this.handleCopy(btn);
+            };
+            btn.addEventListener('click', listener);
+            this.copyListeners.add({ element: btn, listener });
+        });
+
+        pasteButtons.forEach(btn => {
+            const listener = (e) => {
                 e.preventDefault();
-                this.handlePaste(pasteBtn);
-            }
+                this.handlePaste(btn);
+            };
+            btn.addEventListener('click', listener);
+            this.pasteListeners.add({ element: btn, listener });
         });
     }
 
+    removeListeners() {
+        this.copyListeners.forEach(({element, listener}) => {
+            element.removeEventListener('click', listener);
+        });
+        this.pasteListeners.forEach(({element, listener}) => {
+            element.removeEventListener('click', listener);
+        });
+        this.copyListeners.clear();
+        this.pasteListeners.clear();
+    }
+
     async handleCopy(btn) {
-        const sliceId = btn.dataset.sliceId;
+        const sliceId = btn.dataset.sliceCopy;
         
         try {
             const response = await this.apiCall('slice_copy', {
@@ -48,7 +71,7 @@ class SliceOperations {
     }
 
     async handlePaste(btn) {
-        const targetId = btn.dataset.sliceId;
+        const targetId = btn.dataset.slicePaste;
         const position = btn.dataset.pastePosition || 'after';
         
         try {
@@ -59,7 +82,7 @@ class SliceOperations {
 
             if (response.success) {
                 this.showNotification('success', response.message);
-                this.refreshSlice(response.slice_id);
+                this.refreshPage();
             } else {
                 throw new Error(response.message);
             }
@@ -83,6 +106,10 @@ class SliceOperations {
             }
         });
 
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         return await response.json();
     }
 
@@ -96,6 +123,7 @@ class SliceOperations {
             position: "right",
             backgroundColor,
             className: "rex-slice-notification",
+            stopOnFocus: true
         }).showToast();
     }
 
@@ -103,7 +131,7 @@ class SliceOperations {
         const btn = document.querySelector(`[data-slice-copy="${sliceId}"]`);
         if (btn) {
             btn.classList.toggle('is-copied', isCopied);
-            // Update icon
+            
             const icon = btn.querySelector('i');
             if (icon) {
                 icon.className = isCopied ? 'fa-regular fa-clone' : 'fa-regular fa-copy';
@@ -111,14 +139,13 @@ class SliceOperations {
         }
     }
 
-    refreshSlice(sliceId) {
-        // PJAX reload der Seite
-        const url = window.location.href;
-        $.pjax({
-            url: url,
-            container: '#rex-js-page-main-content',
-            fragment: '#rex-js-page-main-content'
-        });
+    refreshPage() {
+        // PJAX reload über REDAXO API
+        if (window.rex && window.rex.pjax) {
+            window.rex.pjax.reload();
+        } else {
+            window.location.reload();
+        }
     }
 
     getCsrfToken() {
@@ -126,5 +153,9 @@ class SliceOperations {
     }
 }
 
-// Initialize
-new SliceOperations();
+// Initialization using jQuery for REDAXO events
+$(document).on('rex:ready', () => {
+    window.rex = window.rex || {};
+    window.rex.sliceOps = new SliceOperations();
+    window.rex.sliceOps.init();
+});
